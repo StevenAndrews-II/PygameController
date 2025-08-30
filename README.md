@@ -39,7 +39,7 @@ cd PygameController
 
 ```python
 import pygame, math
-from Controller import CM
+from PyGC import CM
 
 pygame.init()
 pygame.joystick.init()
