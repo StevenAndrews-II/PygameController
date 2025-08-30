@@ -1,21 +1,18 @@
 
 class CM:
-    """     Controller Module       """
     """ 
-    // -----------------------------------------------------------------------------------------------------------------------------
     This API is created to handle  "virtual ports"  interactions and automate handeling with multiple controller inputs.
-    // -----------------------------------------------------------------------------------------------------------------------------
+
     API Writen By:                                   Steven Andrews II
     Project By:                                   [[ Steven Andrews II ]]                                       
-                                                                                                                - 2025 
-    // -----------------------------------------------------------------------------------------------------------------------------
+                                                                                                                - 2025
     """ 
    
     def __init__(   self    ,   pygame  , math,   number_of_ports   ):
        self.pygame                          = pygame                                #   load modules pushed from start of the class
        self.math                            = math                                  #   standard math lib
        
-       #    Lib/ port settings  ( editable )
+       #    API / port settings  ( editable )
        self.settings = {
            "time_out_"                      :120*60*60,                             #   timeout state for controllers awaiting an open port
            "port_activity"                  :120*60*60,                             #   timeout state for virtual ports with dead or non active controllers 
