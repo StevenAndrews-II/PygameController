@@ -28,7 +28,7 @@ class CM:
            "trigger_deadZone"               :.2                                     #   trigger sensitivity 
        }
       
-       #    variabls 
+       #    vars 
        self.controllers_                    = { 0 : {} , 1 : {} }                   #   Controller buffer // holds raw hardware objects   [  0 = joystick object  // 1 = connection timers  ]
        self.gamepad_count                   = pygame.joystick.get_count()           #   Indexing 
        self.port_read                       = False                                 #   read from port state
