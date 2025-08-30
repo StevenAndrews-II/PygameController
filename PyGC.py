@@ -103,15 +103,13 @@ class CM:
     '''///        Handle new devices into dict from event pull      ///'''
     def plugged(self,j):
          id_ = f"ID_{j.get_instance_id()}"
-         if len(self.controllers_[0]) > 0 and self.port_read == False:
-             sum_        = 0 #           Track found items
-             index       = 0 #           End of trce tick
+         if len(self.controllers_[0]) > 0 and self.port_read == False):
+             index       = 0 #           trace location 
              for k,v in self.controllers_[0].items():
                    index += 1
                    if "ID_"+str(j.get_instance_id()) == k :  
-                           sum_ = sum_+1
                            break
-                   if "ID_"+str(j.get_instance_id()) != k  and sum_ == 0 and index >= len(self.controllers_[0]) :
+                   if "ID_"+str(j.get_instance_id()) != k  and index >= len(self.controllers_[0]) :
                                 print(f"Added controller:1 ID_{j.get_instance_id() }")
                                 self.controllers_[0].update(  { id_ : j }  )
                                 self.controllers_[1].update(  { id_ : 0 }  )
