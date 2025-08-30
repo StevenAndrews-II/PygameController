@@ -1,58 +1,31 @@
-class PyGC(object):
+
+class CM:
     """     Controller Module       """
     """ 
-    // #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            This API is created to handle  "virtual port(s)"  interactions and automate handeling with multiple controller inputs using pygame as input backend.
-    // #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    #
-    #-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    #       External Utility fuctions:
-    #-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    #
-    #       Get_button          (      port_id   ,   button   )                                     Gets the selected button state on a virtual port                             ( returns remmaped state if has set remmaped )
-    #       Get_axis            (      port_id   ,   axis     )                                     Gets the selected axis position on a virtual port                            ( not nomrally used externally for sticks : used for L/R triggers )       
-    #       Get_stick_angle     (      port_id   ,   axis     )                                     gets the stick angle in degrees about the center dead zone of the stick      ( used normally for sticks )
-    #       set_rumble          (      port_id   ,   [ motor_L,motor_R,duration in seconds  ] )     Set the rumble of a controller on a port ( motor power 0 -> 1 )
-    #       
-    #       
-    #       Update_             (      NA      )                                                    Limit speed in main loop // internal system updater ( match set fps )
-    #                                                                                               * NOTE:
-    #                                                                                               In settings timings must be multiplied by the set frame rate number 
-    #                                                                                               Example:  4 seconds * 120 FPS  -> this allows the timers to function 
-    #
-    # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    #      Initializing the lib: ( copy and paste )
-    #               
-    #               import math                 # import required libraries 
-    #               import pygame
-    #               import PygameController
-    #            
-    #               PyGC__     =     PygameController.PyGC(  pygame , math , # of virtual ports (int) , fps reference (int) )
-    #      
-    #
-    #-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------
+    This API is created to handle  "virtual ports"  interactions and automate handeling with multiple controller inputs.
+    // -----------------------------------------------------------------------------------------------------------------------------
     API Writen By:                                   Steven Andrews II
-    Project By:                                   [[ Steven Andrews II ]]                                       2025
-    // #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    Project By:                                   [[ Steven Andrews II ]]                                       
+                                                                                                                - 2025 
+    // -----------------------------------------------------------------------------------------------------------------------------
     """ 
-
-    
-    
-
-    def __init__(   self    ,   pygame  ,  math ,  number_of_ports , set_fps ):
+   
+    def __init__(   self    ,   pygame  , math,   number_of_ports   ):
     #       load and defined defualt varables for lib 
+
 
        self.pygame                          = pygame                                #   load modules pushed from start of the class
        self.math                            = math                                  #   standard math lib
        
        #    Lib/ port settings  ( editable )
        self.settings = {
-           "time_out_"                      :120 *set_fps,                          #   timeout state for controllers awaiting an open port
-           "port_activity"                  :120 *set_fps,                          #   timeout state for virtual ports with dead or non active controllers 
-           "port_activity_deley"            :1   *set_fps,                          #   deley that the activity state will hold before resetting 
-           "port_read_deley"                :10,                                    #   over read on USB port from event call                         ( safty, if unsure leave at 10 frames )  
-           "stick_deadZone"                 :.3,                                    #   stick sensitivity  
-           "set_fps"                        :set_fps                                #   set to your FPS
+           "time_out_"                      :120*60*60,                             #   timeout state for controllers awaiting an open port
+           "port_activity"                  :120*60*60,                             #   timeout state for virtual ports with dead or non active controllers 
+           "port_activity_deley"            :1*60,                                  #   deley that the activity state will hold before resetting ()
+           "port_read_deley"                :1,                                     #   over read on USB port from event call                      
+           "stick_deadZone"                 :.1,                                    #   stick sensitivity 
+           "trigger_deadZone"               :.2                                     #   trigger sensitivity 
        }
       
        #    variabls 
@@ -63,8 +36,8 @@ class PyGC(object):
 
   
        # Port generation and default macro  ( native supports Xbox )         
-       self.port_ = { } # default constructors 
-       self.mac_ = { }
+       self.port_   = { } # default constructors 
+       self.mac_    = { }
        for i in range(number_of_ports):
            self.port_[i] = {  
                 "attached"                  : "none" ,                              #   unique attached controller ID
@@ -84,7 +57,7 @@ class PyGC(object):
 
            self.mac_[i] = {
                "buttons" : {
-               "A"              : {    "map_" : "A"  , "state" : False  ,  "index_" : 0   },
+               "A"              : {    "map_" : "A"  , "state" : False  ,  "index_" : 0   }, 
                "B"              : {    "map_" : "B"  , "state" : False  ,  "index_" : 1   },
                "X"              : {    "map_" : "X"  , "state" : False  ,  "index_" : 2   },
                "Y"              : {    "map_" : "Y"  , "state" : False  ,  "index_" : 3   },
@@ -95,6 +68,7 @@ class PyGC(object):
                "LS"             : {    "map_" : "LS" , "state" : False  ,  "index_" : 8   },
                "RS"             : {    "map_" : "RS" , "state" : False  ,  "index_" : 9   }, 
                },
+
 
                "axis" :{
          
@@ -110,36 +84,42 @@ class PyGC(object):
 
                    "LT"            : {    "map_" : "LT" , "val" : 0  ,  "index_" : 4   },
                    "RT"            : {    "map_" : "RT" , "val" : 0  ,  "index_" : 5   },
-               } 
+               } ,
+
+
+               "d_pad" :{ 
+                    "pad" : {  "value" :( 1, 1)  , "invert" : 1 , "index_" : 0},
+               }
            } #// EO_0 
 
     
 
 
     #-------------------------------------------------------------------------------------------------------------------
-    # INTERNAL FUNCTIONS:   Virtual Port && Controller Handlers/MAnagers:
+    # Internal Functions: Virtual Port && Controller Handlers:
     #-------------------------------------------------------------------------------------------------------------------
    
 
-    '''///        Handle new devices into dict       ///'''
+    '''///        Handle new devices into dict from event pull      ///'''
     def plugged(self,j):
+         id_ = f"ID_{j.get_instance_id()}"
          if len(self.controllers_[0]) > 0 and self.port_read == False:
-             sum        = 0 #           Track found items
-             index      = 0 #           End of trce tick
+             sum_        = 0 #           Track found items
+             index       = 0 #           End of trce tick
              for k,v in self.controllers_[0].items():
-                   index = index+1
+                   index += 1
                    if "ID_"+str(j.get_instance_id()) == k :  
-                           sum = sum+1 
+                           sum_ = sum_+1
                            break
-                   if "ID_"+str(j.get_instance_id()) != k  and sum == 0 and index >= len(self.controllers_[0]) :
-                                print("Added controller:1 "+"ID_"+str(j.get_instance_id()))
-                                self.controllers_[0].update(  { "ID_"+str(j.get_instance_id()) : j }  )
-                                self.controllers_[1].update(  { "ID_"+str(j.get_instance_id()) : 0 }  )
+                   if "ID_"+str(j.get_instance_id()) != k  and sum_ == 0 and index >= len(self.controllers_[0]) :
+                                print(f"Added controller:1 ID_{j.get_instance_id() }")
+                                self.controllers_[0].update(  { id_ : j }  )
+                                self.controllers_[1].update(  { id_ : 0 }  )
                                 break               
          elif len(self.controllers_[0]) == 0:
-                print("Added controller:0 "+"ID_"+str(j.get_instance_id()))
-                self.controllers_[0].update(  { "ID_"+str(j.get_instance_id()) : j }  ) 
-                self.controllers_[1].update(  { "ID_"+str(j.get_instance_id()) : 0 }  )
+                print(f"Added controller:0 {id_}")
+                self.controllers_[0].update(  { id_ : j }  ) 
+                self.controllers_[1].update(  { id_ : 0 }  )
                 self.port_read = True
                 return
 
@@ -147,12 +127,13 @@ class PyGC(object):
 
 
     '''///        Auto removes IDs from dict on uplugging       ///'''
-    def unplugged(self,i):
+    def unplugged( self , i ):
+        id_ = f"ID_{i}"
         for k,v in self.controllers_[0].items():
-             if k == "ID_"+str(i):
-                print("controller_   "+k+"  uplugged...")
-                self.controllers_[0].pop("ID_"+str(i))
-                self.controllers_[1].pop("ID_"+str(i))
+             if k == id_:
+                print(f"controller_  { k }  uplugged...")
+                self.controllers_[0].pop(id_)
+                self.controllers_[1].pop(id_)
                 return
                
 
@@ -161,16 +142,15 @@ class PyGC(object):
     '''///       handle dead controller ids not on port // controller state machine      ///'''
     def time_out(self):
             for k,v in self.controllers_[0].items():
-                # only operates on controllers not on ports 
                 index = 0
                 for i in range(len(self.port_)):
                      if k == self.port_[i]["attached"]:
-                         index = index +1
+                         index += 1
                 if i == len(self.port_)-1 and index == 0:
                     if  self.controllers_[1][k] < self.settings["time_out_"]:
-                        self.controllers_[1][k]         =       self.controllers_[1][k]     +   1
+                        self.controllers_[1][k]       +=  1
                     elif self.controllers_[1][k] >= self.settings["time_out_"]:
-                         print("controller_   "+k+"  timed out, was removed")
+                         print(f"controller_   {k}  timed out, was removed")
                          self.controllers_[0].pop(k)
                          self.controllers_[1].pop(k)
                          break
@@ -179,13 +159,14 @@ class PyGC(object):
 
 
     '''///       Manage the virtual ports // state machine    (super fast)  ///'''
+
     def port_manager(self):
         #   hardware port over read deley ( deleys the read from the event call from hardware read in pygame )
         if self.port_read == True :
-             self.port_read_t =self.port_read_t+1
+             self.port_read_t               += 1
              if self.port_read_t >= self.settings["port_read_deley"]:
-                    self.port_read = False
-                    self.port_read_t = 0
+                    self.port_read          = False
+                    self.port_read_t        = 0
         #   port auto handlers 
         for i in range(len( self.port_)):
             if self.port_[i]["attached"] != "none":
@@ -195,7 +176,7 @@ class PyGC(object):
                         if self.port_[i]["activity"] == False :
                             self.port_[i]["act_t"] = self.port_[i]["act_t"] +1
                             if self.port_[i]["act_t"] >= self.settings["port_activity"]:
-                                print("port manager:     Detatched port [   "+ str(i) +"   ] due to inactivity:  ")
+                                print(f"port manager:     Detatched port [  {i}  ] due to inactivity:  ")
                                 self.detach_(  i  )     #   pop all && reset
                                 self.controllers_[0].pop(k)
                                 self.controllers_[1].pop(k)
@@ -207,25 +188,25 @@ class PyGC(object):
                                     self.port_[i]["activity"]   = False
                                     self.port_[i]["act_lt"]     = 0
                 #   dead controller detection on a port                             // clear virtual port
-                sum     = 0
+                sum_     = 0
                 for k,v in self.controllers_[0].items():
                     if self.port_[i]["attached"] != k:
-                        sum = sum  + 1 
-                    if  sum  >= len(self.controllers_[0].items()):
-                        print("port manager:     Detatched dead controller from port [   "+ str(i) +"   ]")
+                        sum_ = sum_  + 1 
+                    if  sum_  >= len(self.controllers_[0].items()):
+                        print(f"port manager:     Detatched dead controller from port [  {i}  ]")
                         self.detach_(  i  )
                 if len(self.controllers_[0]) == 0:  # handle no controller 
-                        print("port manager:     Detatched dead controller from port [   "+ str(i) +"   ]")
+                        print(f"port manager:     Detatched dead controller from port [   {i}   ]")
                         self.detach_(  i  )
-                 #   auto assign port to next awaiting controller                   // attach to virtual port
+                 #   auto assign port to next awaiting controller                   // attach to virtual port    
             if self.port_[i]["attached"] == "none":
-                for k,v in self.controllers_[0].items(): 
+                for k,v in self.controllers_[0].items():
                     index = 0
                     for i__ in range(len(self.port_)):
                         if k == self.port_[i__]["attached"]: 
                             index = index+1
                     if i__ >= len(self.port_)-1 and index == 0:
-                        print("port manager:    Controller_ "+k+" was bound to port: "+str(i))                                                         
+                        print(f"port manager:    Controller_ {k} was bound to port: {i}")                                                         
                         self.attach_( i , k )
                         return
                             
@@ -234,30 +215,45 @@ class PyGC(object):
         
     '''///       Handles button states & axis values for each controller at port + port activity state update    ///'''
     def input_handler(self):
-        for i in range(len( self.port_)):
+        for i in range(len(self.port_)):
             if self.port_[i]["attached"] != "none":
-                for k,v in self.controllers_[0].items():
-                    if k ==  self.port_[i]["attached"]:
-                        for k_mac,v_mac in  self.mac_[i]["buttons"].items():
-                            v_mac["state"] =  self.controllers_[0][ k ].get_button( v_mac["index_"])
-                            if  v_mac["state"] == 1 :
+                for k, v in self.controllers_[0].items():
+                    if k == self.port_[i]["attached"]:
+
+                        # --- BUTTONS ---
+                        for k_mac, v_mac in self.mac_[i]["buttons"].items():
+                            v_mac["state"] = self.controllers_[0][k].get_button(v_mac["index_"])
+                            if v_mac["state"] == 1:
                                 self.port_[i]["activity"] = True
-                        # triggers 
-                        for k_mac_axis,v_mac_axis in self.mac_[i]["axis"].items():
-                            if k_mac_axis != "L_stick" and k_mac_axis != "R_stick":
-                                v_mac_axis["val"] =  self.controllers_[0][ k ].get_axis( v_mac_axis["index_"])
-                                if  v_mac_axis["val"] > 0 : 
+
+                        # --- TRIGGERS & STICKS ---
+                        for k_mac_axis, v_mac_axis in self.mac_[i]["axis"].items():
+                            if k_mac_axis not in ["L_stick", "R_stick"]:
+                                # Triggers (single axis)
+                                v_mac_axis["val"] = self.controllers_[0][k].get_axis(v_mac_axis["index_"])
+                                if v_mac_axis["val"] > self.settings["trigger_deadZone"]:
                                     self.port_[i]["activity"] = True
                                 else:
-                                     v_mac_axis["val"]  = 0          
+                                    v_mac_axis["val"] = 0
                             else:
-                        # sticks 
-                                 for stick_k , stick_v in v_mac_axis.items():
-                                      stick_v["val"] =  self.controllers_[0][ k ].get_axis( stick_v["index_"])
-                                      if stick_v["val"] > self.settings["stick_deadZone"] or stick_v["val"] < -self.settings["stick_deadZone"] : 
-                                            self.port_[i]["activity"] = True
-                                      else:
-                                          stick_v["val"] = 0        
+                                # Sticks (x and y axes)
+                                for stick_k, stick_v in v_mac_axis.items():
+                                    stick_v["val"] = self.controllers_[0][k].get_axis(stick_v["index_"])
+                                    if (stick_v["val"] > self.settings["stick_deadZone"] or
+                                        stick_v["val"] < -self.settings["stick_deadZone"]):
+                                        self.port_[i]["activity"] = True
+                                    else:
+                                        stick_v["val"] = 0
+
+                        # --- D-PAD (HAT) ---
+                        if self.controllers_[0][k].get_numhats() > 0:
+                            hat_val = self.controllers_[0][k].get_hat(0)
+                            self.mac_[i]["d_pad"]["pad"]["value"] = (
+                                hat_val[0] * self.mac_[i]["d_pad"]["pad"]["invert"],
+                                hat_val[1] * self.mac_[i]["d_pad"]["pad"]["invert"]
+                            )
+                            if hat_val != (0, 0):
+                                self.port_[i]["activity"] = True
 
 
 
@@ -266,24 +262,48 @@ class PyGC(object):
     def rumble_handler(self):
         for k,v in self.port_.items():
             if v["rumble_state"] == True:
-                v["rumble_t"]           = v["rumble_t"] + 1
-                if v["rumble_t"] >  v["rumble_dur"]*self.settings["set_fps"]:
-                   v["rumble_t"]        = 0
-                   v["rumble_state"]    = False
-                if v["rumble_t"] <= v["rumble_dur"]*self.settings["set_fps"]:
+                v["rumble_t"]                               = v["rumble_t"] + 1
+                if v["rumble_t"] >  v["rumble_dur"]*60:
+                   v["rumble_t"]                            = 0
+                   v["rumble_state"]                        = False
+                if v["rumble_t"] <= v["rumble_dur"]*60:
                    for k_,v_ in self.controllers_[0].items():
                        if k_ == v["attached"]:
                            v_.rumble(
-                               float(v["L_motor"]),
-                               float(v["R_motor"]),
-                               1
+                                           float(v["L_motor"]),
+                                           float(v["R_motor"]),
+                                           1
                                )
                            break
 
 
-    #-------------------------------------------------------------------------------------------------------------------
-    # EXTERNALLY USED FUNCTIONS: 
-    #-------------------------------------------------------------------------------------------------------------------
+
+    #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    #       External Utility fuctions:
+    #---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    #
+    #       Get_button          (      port_id   ,   button        )                                     Gets the selected button state on a virtual port 
+    #       Get_axis            (      port_id   ,   axis          )                                     Gets the selected axis position on a virtual port         
+    #       Get_stick_angle     (      port_id   ,   axis          )                                     Gets the stick angle in degrees about the center dead zone of the stick
+    #       Get_dpad            (      port_id   ,   pad_select    )                                     Gets dpad(s) 
+    #       Set_rumble          (      port_id   ,   [ motor_L,motor_R,duration in seconds  ] )          Set the rumble of a controller on a port ( motor power 0 -> 1 )
+    #
+    #------------------------------------------( internal use functions )-------------------------------------------------------------------------------------------------------
+    #       Attach(     port id  / joy id    )                           Attaches a controller to a virtual port
+    #       Dettach(    port id     )                                    Dettachs a controller from a virtual port
+    #---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    ''' EXTERNAL UTILITY:                Get dpad(s) / get depad'''
+    def get_dpad(self, port_id , pad_select = None ):
+        if self.port_[port_id]["attached"] != "none":
+            if pad_select == None:
+                return self.mac_[port_id]["d_pad"]["pad"]["value"]
+            if pad_select == "xpad":
+                return self.mac_[port_id]["d_pad"]["pad"]["value"][0]
+            if pad_select == "ypad":
+                return self.mac_[port_id]["d_pad"]["pad"]["value"][1]
+        return (0, 0) 
+
 
 
     ''' EXTERNAL UTILITY:                Get button remaps '''
@@ -300,8 +320,7 @@ class PyGC(object):
 
 
 
-
-    ''' EXTERNAL UTILITY:                Get trigger values and stick X/Y ( handles stick inversion )'''
+    ''' EXTERNAL /internal  UTILITY:                Get trigger values and stick X/Y ( handles stick inversion )'''
     def get_axis(    self,   port_id   ,   axis    ):
         if self.port_[port_id]["attached"] != "none":
             for k,v in  self.mac_[port_id]["axis"].items():
@@ -309,7 +328,6 @@ class PyGC(object):
                    if axis == "L_stick" or axis == "R_stick" :
                         return ( v["x"]["val"]*v["x"]["invert"]) , (v["y"]["val"]*v["y"]["invert"] )         # returns a touple ( X & Y stick location abt center )
                    else:
-                       if k == axis :
                             if v["map_"] == axis:
                                 return v["val"]                                                              # trigger returns single value  ( normal map return )
                             else:
@@ -318,21 +336,19 @@ class PyGC(object):
                                         return  v_["val"]                                                    # returns remapped trigger 
                         
 
-
-
     
-    ''' EXTERNAL UTILITY:                Get the angle and magnitude about the center of the stick'''
+    ''' EXTERNAL UTILITY:                Get the angle and magnitude about the center of the stick / wrapper for get_axis'''
     def get_stick_angle( self, port_id , axis):
         o_ = self.get_axis(int(port_id),str(axis))
         if o_:
-            x,y  = o_
-            magnitude = (self.math.sqrt(x*x+y*y))
-
-            if magnitude > 1:
-                magnitude = 1
+            x,y       = o_
+            magnitude = self.math.sqrt(x*x+y*y)
+  
+            if self.math.sqrt(magnitude) > 1:
+                magnitude = 1 
 
             if magnitude != 0 :  
-                return abs(self.math.degrees(self.math.atan2(x,y))-180), magnitude
+                return (self.math.degrees(self.math.atan2(x,y)) % 360), magnitude
             else:
                 return None,None
         return None,None      
@@ -355,9 +371,7 @@ class PyGC(object):
     
 
 
-    #-------------------------------------------------------------------------------------------------------------------
-    # INTERNAL QUICK FUNCTIONS: 
-    #-------------------------------------------------------------------------------------------------------------------
+   #// --------------------------------------------------------------------------------------------------------------
 
     ''' INTERNAL UTILITY:                Attach controller to port'''
     def attach_( self , port_id , joy_id ):
@@ -406,19 +420,19 @@ class PyGC(object):
        
 
     #-------------------------------------------------------------------------------------------------------------------
-    # Internal updater: // Externally update at some set/locked FPS
+    # Internal updater: // controlls locked/limited at 120 FPS 
     #-------------------------------------------------------------------------------------------------------------------
     def update_(self):
+
         # internal state machines 
-        self.time_out() 
+        self.time_out()       
         self.port_manager()
         self.input_handler()
         self.rumble_handler()
-         # Pygame event pull 
+        # Pygame event pull 
 
         for event in self.pygame.event.get():
-                rt = None
-                if event.type == self.pygame.JOYDEVICEADDED and not rt:
+                if event.type == self.pygame.JOYDEVICEADDED:
                      j = self.pygame.joystick.Joystick(event.device_index)
                      rt = self.plugged(j)
                     
