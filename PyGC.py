@@ -12,9 +12,6 @@ class CM:
     """ 
    
     def __init__(   self    ,   pygame  , math,   number_of_ports   ):
-    #       load and defined defualt varables for lib 
-
-
        self.pygame                          = pygame                                #   load modules pushed from start of the class
        self.math                            = math                                  #   standard math lib
        
