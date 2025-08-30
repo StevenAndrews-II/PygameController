@@ -42,6 +42,7 @@ import pygame, math
 from Controller import CM
 
 pygame.init()
+pygame.joystick.init()
 
 # Create controller manager for 2 virtual ports
 cm = CM(pygame, math, number_of_ports=2)
