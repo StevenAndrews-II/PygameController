@@ -49,7 +49,7 @@ cm = CM(pygame, math, number_of_ports=2)
 # Main loop
 running = True
 while running:
-    cm.update_()  # update internal state machines
+    cm.update_()  # update internal state machines // should really be FPS limited 
 
     # Example: check button A on port 0
     if cm.get_button(0, "A"):
@@ -96,5 +96,5 @@ Default settings can be adjusted in `self.settings`:
 ## 🛠️ Project Info
 
 - Author: **Steven Andrews II**  
-- License: MIT (consider adding a LICENSE file)  
+- License: MIT ( open source )  
 - Year: 2025  
