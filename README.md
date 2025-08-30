@@ -1,6 +1,6 @@
 # 🎮 PygameController API
 
-A Python library by **Steven Andrews II** that provides a **virtual port system** for handling multiple game controllers using Pygame.  
+A Python API by **Steven Andrews II** that provides a **virtual port system** for handling multiple game controllers using Pygame.  
 It abstracts raw controller inputs into a clean interface with support for **button mapping, axis handling, D-Pad, and rumble control**.
 
 ---
@@ -19,7 +19,7 @@ It abstracts raw controller inputs into a clean interface with support for **but
 
 ## 🚀 Installation
 
-This library depends on **pygame**. Install it with:
+This API depends on **pygame**. Install it with:
 
 ```bash
 pip install pygame
