@@ -59,7 +59,7 @@ def APP():
     # update the internal state machines 
     cm.update() 
 
-    # Example: check button A on port 0
+    # Example: check button A & B on port 0
     if cm.get_button(0, "A"):
         print("Button A pressed on port 0")
 
@@ -67,13 +67,14 @@ def APP():
         print("Exiting program...")
         EXIT = True
 
+    # Example: set rumble 
+    if cm.get_button(0, "X"):
+       cm.set_rumble(0, [0.5, 0.5, 2])  #  50 % L_motor, R_motor, duration in seconds
+
     # Example: get stick angle + magnitude
     angle, mag = cm.get_stick_angle(0, "L_stick")
     if angle is not None:
         print(f"L-stick angle: {angle:.2f}°, magnitude: {mag:.2f}")
-
-    # Example: set rumble
-    cm.set_rumble(0, [0.5, 0.5, 2])  # L_motor, R_motor, duration in seconds
 
 
 while not EXIT:                                # main loop, fps locked to 60 
