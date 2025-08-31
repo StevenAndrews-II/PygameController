@@ -3,20 +3,19 @@ class CM:
     """ 
     This API is created to handle  "virtual ports"  interactions and automate handeling with multiple controller inputs.
 
-    API Writen By:                                   Steven Andrews II
-    Project By:                                   [[ Steven Andrews II ]]                                       
+    API Writen By:                                   Steven Andrews II                                      
                                                                                                                 - 2025
     """ 
    
-    def __init__(   self    ,   pygame  , math,   number_of_ports   ):
+    def __init__(   self    ,   pygame  , math,   number_of_ports ,FPS  ):
        self.pygame                          = pygame                                #   load modules pushed from start of the class
        self.math                            = math                                  #   standard math lib
-       
+       self.fps_lock                        = FPS 
        #    API / port settings  ( editable )
        self.settings = {
-           "time_out_"                      :120*60*60,                             #   timeout state for controllers awaiting an open port
-           "port_activity"                  :120*60*60,                             #   timeout state for virtual ports with dead or non active controllers 
-           "port_activity_deley"            :1*60,                                  #   deley that the activity state will hold before resetting ()
+           "time_out_"                      :FPS*60*60,                             #   timeout state for controllers awaiting an open port
+           "port_activity"                  :FPS*60*60,                             #   timeout state for virtual ports with dead or non active controllers 
+           "port_activity_deley"            :0.5*FPS,                                  #   deley that the activity state will hold before resetting ()
            "port_read_deley"                :1,                                     #   over read on USB port from event call                      
            "stick_deadZone"                 :.1,                                    #   stick sensitivity 
            "trigger_deadZone"               :.2                                     #   trigger sensitivity 
@@ -86,191 +85,7 @@ class CM:
                }
            } #// EO_0 
 
-    
-
-
-    #-------------------------------------------------------------------------------------------------------------------
-    # Internal Functions: Virtual Port && Controller Handlers:
-    #-------------------------------------------------------------------------------------------------------------------
-   
-
-    '''///        Handle new devices into dict from event pull      ///'''
-    def plugged(self,j):
-         id_ = f"ID_{j.get_instance_id()}"
-         if len(self.controllers_[0]) > 0 and self.port_read == False):
-             index       = 0 #           trace location 
-             for k,v in self.controllers_[0].items():
-                   index += 1
-                   if "ID_"+str(j.get_instance_id()) == k :  
-                           break
-                   if "ID_"+str(j.get_instance_id()) != k  and index >= len(self.controllers_[0]) :
-                                print(f"Added controller:1 ID_{j.get_instance_id() }")
-                                self.controllers_[0].update(  { id_ : j }  )
-                                self.controllers_[1].update(  { id_ : 0 }  )
-                                break               
-         elif len(self.controllers_[0]) == 0:
-                print(f"Added controller:0 {id_}")
-                self.controllers_[0].update(  { id_ : j }  ) 
-                self.controllers_[1].update(  { id_ : 0 }  )
-                self.port_read = True
-                return
-
-
-
-
-    '''///        Auto removes IDs from dict on uplugging       ///'''
-    def unplugged( self , i ):
-        id_ = f"ID_{i}"
-        for k,v in self.controllers_[0].items():
-             if k == id_:
-                print(f"controller_  { k }  uplugged...")
-                self.controllers_[0].pop(id_)
-                self.controllers_[1].pop(id_)
-                return
-               
-
-
-
-    '''///       handle dead controller ids not on port // controller state machine      ///'''
-    def time_out(self):
-            for k,v in self.controllers_[0].items():
-                index = 0
-                for i in range(len(self.port_)):
-                     if k == self.port_[i]["attached"]:
-                         index += 1
-                if i == len(self.port_)-1 and index == 0:
-                    if  self.controllers_[1][k] < self.settings["time_out_"]:
-                        self.controllers_[1][k]       +=  1
-                    elif self.controllers_[1][k] >= self.settings["time_out_"]:
-                         print(f"controller_   {k}  timed out, was removed")
-                         self.controllers_[0].pop(k)
-                         self.controllers_[1].pop(k)
-                         break
-
-
-
-
-    '''///       Manage the virtual ports // state machine    (super fast)  ///'''
-
-    def port_manager(self):
-        #   hardware port over read deley ( deleys the read from the event call from hardware read in pygame )
-        if self.port_read == True :
-             self.port_read_t               += 1
-             if self.port_read_t >= self.settings["port_read_deley"]:
-                    self.port_read          = False
-                    self.port_read_t        = 0
-        #   port auto handlers 
-        for i in range(len( self.port_)):
-            if self.port_[i]["attached"] != "none":
-                #   port activity state ( state of the controller on a port)        // clear virtual port + remove controller obj
-                for k,v in self.controllers_[0].items():
-                    if self.port_[i]["attached"] == k:
-                        if self.port_[i]["activity"] == False :
-                            self.port_[i]["act_t"] = self.port_[i]["act_t"] +1
-                            if self.port_[i]["act_t"] >= self.settings["port_activity"]:
-                                print(f"port manager:     Detatched port [  {i}  ] due to inactivity:  ")
-                                self.detach_(  i  )     #   pop all && reset
-                                self.controllers_[0].pop(k)
-                                self.controllers_[1].pop(k)
-                                return
-                        else: #     reset the activity state 
-                                self.port_[i]["act_t"] = 0 
-                                self.port_[i]["act_lt"] = self.port_[i]["act_lt"] +1
-                                if self.port_[i]["act_lt"] >= self.settings["port_activity_deley"]:
-                                    self.port_[i]["activity"]   = False
-                                    self.port_[i]["act_lt"]     = 0
-                #   dead controller detection on a port                             // clear virtual port
-                sum_     = 0
-                for k,v in self.controllers_[0].items():
-                    if self.port_[i]["attached"] != k:
-                        sum_ = sum_  + 1 
-                    if  sum_  >= len(self.controllers_[0].items()):
-                        print(f"port manager:     Detatched dead controller from port [  {i}  ]")
-                        self.detach_(  i  )
-                if len(self.controllers_[0]) == 0:  # handle no controller 
-                        print(f"port manager:     Detatched dead controller from port [   {i}   ]")
-                        self.detach_(  i  )
-                 #   auto assign port to next awaiting controller                   // attach to virtual port    
-            if self.port_[i]["attached"] == "none":
-                for k,v in self.controllers_[0].items():
-                    index = 0
-                    for i__ in range(len(self.port_)):
-                        if k == self.port_[i__]["attached"]: 
-                            index = index+1
-                    if i__ >= len(self.port_)-1 and index == 0:
-                        print(f"port manager:    Controller_ {k} was bound to port: {i}")                                                         
-                        self.attach_( i , k )
-                        return
-                            
-                 
-
-        
-    '''///       Handles button states & axis values for each controller at port + port activity state update    ///'''
-    def input_handler(self):
-        for i in range(len(self.port_)):
-            if self.port_[i]["attached"] != "none":
-                for k, v in self.controllers_[0].items():
-                    if k == self.port_[i]["attached"]:
-
-                        # --- BUTTONS ---
-                        for k_mac, v_mac in self.mac_[i]["buttons"].items():
-                            v_mac["state"] = self.controllers_[0][k].get_button(v_mac["index_"])
-                            if v_mac["state"] == 1:
-                                self.port_[i]["activity"] = True
-
-                        # --- TRIGGERS & STICKS ---
-                        for k_mac_axis, v_mac_axis in self.mac_[i]["axis"].items():
-                            if k_mac_axis not in ["L_stick", "R_stick"]:
-                                # Triggers (single axis)
-                                v_mac_axis["val"] = self.controllers_[0][k].get_axis(v_mac_axis["index_"])
-                                if v_mac_axis["val"] > self.settings["trigger_deadZone"]:
-                                    self.port_[i]["activity"] = True
-                                else:
-                                    v_mac_axis["val"] = 0
-                            else:
-                                # Sticks (x and y axes)
-                                for stick_k, stick_v in v_mac_axis.items():
-                                    stick_v["val"] = self.controllers_[0][k].get_axis(stick_v["index_"])
-                                    if (stick_v["val"] > self.settings["stick_deadZone"] or
-                                        stick_v["val"] < -self.settings["stick_deadZone"]):
-                                        self.port_[i]["activity"] = True
-                                    else:
-                                        stick_v["val"] = 0
-
-                        # --- D-PAD (HAT) ---
-                        if self.controllers_[0][k].get_numhats() > 0:
-                            hat_val = self.controllers_[0][k].get_hat(0)
-                            self.mac_[i]["d_pad"]["pad"]["value"] = (
-                                hat_val[0] * self.mac_[i]["d_pad"]["pad"]["invert"],
-                                hat_val[1] * self.mac_[i]["d_pad"]["pad"]["invert"]
-                            )
-                            if hat_val != (0, 0):
-                                self.port_[i]["activity"] = True
-
-
-
-
-    '''///      Handles rumble for controllers on ports  (durration in seconds)  ///'''
-    def rumble_handler(self):
-        for k,v in self.port_.items():
-            if v["rumble_state"] == True:
-                v["rumble_t"]                               = v["rumble_t"] + 1
-                if v["rumble_t"] >  v["rumble_dur"]*60:
-                   v["rumble_t"]                            = 0
-                   v["rumble_state"]                        = False
-                if v["rumble_t"] <= v["rumble_dur"]*60:
-                   for k_,v_ in self.controllers_[0].items():
-                       if k_ == v["attached"]:
-                           v_.rumble(
-                                           float(v["L_motor"]),
-                                           float(v["R_motor"]),
-                                           1
-                               )
-                           break
-
-
-
-    #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    #---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     #       External Utility fuctions:
     #---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     #
@@ -279,10 +94,6 @@ class CM:
     #       Get_stick_angle     (      port_id   ,   axis          )                                     Gets the stick angle in degrees about the center dead zone of the stick
     #       Get_dpad            (      port_id   ,   pad_select    )                                     Gets dpad(s) 
     #       Set_rumble          (      port_id   ,   [ motor_L,motor_R,duration in seconds  ] )          Set the rumble of a controller on a port ( motor power 0 -> 1 )
-    #
-    #------------------------------------------( internal use functions )-------------------------------------------------------------------------------------------------------
-    #       Attach(     port id  / joy id    )                           Attaches a controller to a virtual port
-    #       Dettach(    port id     )                                    Dettachs a controller from a virtual port
     #---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     ''' EXTERNAL UTILITY:                Get dpad(s) / get depad'''
@@ -363,33 +174,211 @@ class CM:
     
 
 
-   #// --------------------------------------------------------------------------------------------------------------
+    #-------------------------------------------------------------------------------------------------------------------
+    # Internal Functions: Virtual Port && Controller Handlers:
+    #-------------------------------------------------------------------------------------------------------------------
+   
+
+    '''///        Handle new devices into dict from event pull      ///'''
+    def __plugged(self,j):
+         id_ = f"ID_{j.get_instance_id()}"
+         if len(self.controllers_[0]) > 0 and self.port_read == False:
+             index       = 0 #           trace location 
+             for k,v in self.controllers_[0].items():
+                   index += 1
+                   if "ID_"+str(j.get_instance_id()) == k :  
+                           break
+                   if "ID_"+str(j.get_instance_id()) != k  and index >= len(self.controllers_[0]) :
+                                print(f"Added controller:1 ID_{j.get_instance_id() }")
+                                self.controllers_[0].update(  { id_ : j }  )
+                                self.controllers_[1].update(  { id_ : 0 }  )
+                                break               
+         elif len(self.controllers_[0]) == 0:
+                print(f"Added controller:0 {id_}")
+                self.controllers_[0].update(  { id_ : j }  ) 
+                self.controllers_[1].update(  { id_ : 0 }  )
+                self.port_read = True
+                return
+
+
+
+
+    '''///        Auto removes IDs from dict on uplugging       ///'''
+    def __unplugged( self , i ):
+        id_ = f"ID_{i}"
+        for k,v in self.controllers_[0].items():
+             if k == id_:
+                print(f"controller_  { k }  uplugged...")
+                self.controllers_[0].pop(id_)
+                self.controllers_[1].pop(id_)
+                return
+               
+
+
+
+    '''///       handle dead controller ids not on port // controller state machine      ///'''
+    def __time_out(self):
+            for k,v in self.controllers_[0].items():
+                index = 0
+                for i in range(len(self.port_)):
+                     if k == self.port_[i]["attached"]:
+                         index += 1
+                if i == len(self.port_)-1 and index == 0:
+                    if  self.controllers_[1][k] < self.settings["time_out_"]:
+                        self.controllers_[1][k]       +=  1
+                    elif self.controllers_[1][k] >= self.settings["time_out_"]:
+                         print(f"controller_   {k}  timed out, was removed")
+                         self.controllers_[0].pop(k)
+                         self.controllers_[1].pop(k)
+                         break
+
+
+
+
+    '''///       Manage the virtual ports // state machine    (super fast)  ///'''
+
+    def __port_manager(self):
+        #   hardware port over read deley ( deleys the read from the event call from hardware read in pygame )
+        if self.port_read == True :
+             self.port_read_t               += 1
+             if self.port_read_t >= self.settings["port_read_deley"]:
+                    self.port_read          = False
+                    self.port_read_t        = 0
+        #   port auto handlers 
+        for i in range(len( self.port_)):
+            if self.port_[i]["attached"] != "none":
+                #   port activity state ( state of the controller on a port)        // clear virtual port + remove controller obj
+                for k,v in self.controllers_[0].items():
+                    if self.port_[i]["attached"] == k:
+                        if self.port_[i]["activity"] == False :
+                            self.port_[i]["act_t"] = self.port_[i]["act_t"] +1
+                            if self.port_[i]["act_t"] >= self.settings["port_activity"]:
+                                print(f"port manager:     Detatched port [  {i}  ] due to inactivity:  ")
+                                self.__detach(  i  )     #   pop all && reset
+                                self.controllers_[0].pop(k)
+                                self.controllers_[1].pop(k)
+                                return
+                        else: #     reset the activity state 
+                                self.port_[i]["act_t"] = 0 
+                                self.port_[i]["act_lt"] = self.port_[i]["act_lt"] +1
+                                if self.port_[i]["act_lt"] >= self.settings["port_activity_deley"]:
+                                    self.port_[i]["activity"]   = False
+                                    self.port_[i]["act_lt"]     = 0
+                #   dead controller detection on a port                             // clear virtual port
+                sum_     = 0
+                for k,v in self.controllers_[0].items():
+                    if self.port_[i]["attached"] != k:
+                        sum_ = sum_  + 1 
+                    if  sum_  >= len(self.controllers_[0].items()):
+                        print(f"port manager:     Detatched dead controller from port [  {i}  ]")
+                        self.__detach(  i  )
+                if len(self.controllers_[0]) == 0:  # handle no controller 
+                        print(f"port manager:     Detatched dead controller from port [   {i}   ]")
+                        self.__detach(  i  )
+                 #   auto assign port to next awaiting controller                   // attach to virtual port    
+            if self.port_[i]["attached"] == "none":
+                for k,v in self.controllers_[0].items():
+                    index = 0
+                    for i__ in range(len(self.port_)):
+                        if k == self.port_[i__]["attached"]: 
+                            index = index+1
+                    if i__ >= len(self.port_)-1 and index == 0:
+                        print(f"port manager:    Controller_ {k} was bound to port: {i}")                                                         
+                        self.__attach( i , k )
+                        return
+                            
+                 
+
+        
+    '''///       Handles button states & axis values for each controller at port + port activity state update    ///'''
+    def __input_handler(self):
+        for i in range(len(self.port_)):
+            if self.port_[i]["attached"] != "none":
+                for k, v in self.controllers_[0].items():
+                    if k == self.port_[i]["attached"]:
+
+                        # --- BUTTONS ---
+                        for k_mac, v_mac in self.mac_[i]["buttons"].items():
+                            v_mac["state"] = self.controllers_[0][k].get_button(v_mac["index_"])
+                            if v_mac["state"] == 1:
+                                self.port_[i]["activity"] = True
+
+                        # --- TRIGGERS & STICKS ---
+                        for k_mac_axis, v_mac_axis in self.mac_[i]["axis"].items():
+                            if k_mac_axis not in ["L_stick", "R_stick"]:
+                                # Triggers (single axis)
+                                v_mac_axis["val"] = self.controllers_[0][k].get_axis(v_mac_axis["index_"])
+                                if v_mac_axis["val"] > self.settings["trigger_deadZone"]:
+                                    self.port_[i]["activity"] = True
+                                else:
+                                    v_mac_axis["val"] = 0
+                            else:
+                                # Sticks (x and y axes)
+                                for stick_k, stick_v in v_mac_axis.items():
+                                    stick_v["val"] = self.controllers_[0][k].get_axis(stick_v["index_"])
+                                    if (stick_v["val"] > self.settings["stick_deadZone"] or
+                                        stick_v["val"] < -self.settings["stick_deadZone"]):
+                                        self.port_[i]["activity"] = True
+                                    else:
+                                        stick_v["val"] = 0
+
+                        # --- D-PAD (HAT) ---
+                        if self.controllers_[0][k].get_numhats() > 0:
+                            hat_val = self.controllers_[0][k].get_hat(0)
+                            self.mac_[i]["d_pad"]["pad"]["value"] = (
+                                hat_val[0] * self.mac_[i]["d_pad"]["pad"]["invert"],
+                                hat_val[1] * self.mac_[i]["d_pad"]["pad"]["invert"]
+                            )
+                            if hat_val != (0, 0):
+                                self.port_[i]["activity"] = True
+
+
+
+
+    '''///      Handles rumble for controllers on ports  (durration in seconds)  ///'''
+    def __rumble_handler(self):
+        for k,v in self.port_.items():
+            if v["rumble_state"] == True:
+                v["rumble_t"]                               = v["rumble_t"] + 1
+                if v["rumble_t"] >  v["rumble_dur"]*self.fps_lock:
+                   v["rumble_t"]                            = 0
+                   v["rumble_state"]                        = False
+                if v["rumble_t"] <= v["rumble_dur"]*self.fps_lock:
+                   for k_,v_ in self.controllers_[0].items():
+                       if k_ == v["attached"]:
+                           v_.rumble(
+                                           float(v["L_motor"]),
+                                           float(v["R_motor"]),
+                                           1
+                               )
+                           break
+
+
 
     ''' INTERNAL UTILITY:                Attach controller to port'''
-    def attach_( self , port_id , joy_id ):
-                if  self.port_[port_id]["attached"]         ==  "none":
-                    self.controllers_[1][str(joy_id)]       =   0                        
-                    self.port_[port_id]["attached"]         =   str(  joy_id  ) 
-                    self.port_[port_id]["hat_num "]         =   self.controllers_[0][   str(joy_id)     ].get_numhats()
-                    self.port_[port_id]["axis_num"]         =   self.controllers_[0][   str(joy_id)     ].get_numaxes()
-                    self.port_[port_id]["button_num"]       =   self.controllers_[0][   str(joy_id)     ].get_numbuttons()
-                    self.port_[port_id]["activity"]         =   True
-                    self.port_[port_id]["act_t"]            =   0
-                    self.port_[port_id]["act_lt"]           =   0
-                    self.port_[port_id]["rumble_state"]     =   False
-                    self.port_[port_id]["rumble_t"]         =   0
-                    self.port_[port_id]["rumble_dur"]       =   0
-                    self.port_[port_id]["L_motor"]          =   0
-                    self.port_[port_id]["R_motor"]          =   0
-
-                    return True
-                else:
-                    return False
+    def __attach( self , port_id , joy_id ):
+        if  self.port_[port_id]["attached"]         ==  "none":
+            self.controllers_[1][str(joy_id)]       =   0                        
+            self.port_[port_id]["attached"]         =   str(  joy_id  ) 
+            self.port_[port_id]["hat_num "]         =   self.controllers_[0][   str(joy_id)     ].get_numhats()
+            self.port_[port_id]["axis_num"]         =   self.controllers_[0][   str(joy_id)     ].get_numaxes()
+            self.port_[port_id]["button_num"]       =   self.controllers_[0][   str(joy_id)     ].get_numbuttons()
+            self.port_[port_id]["activity"]         =   True
+            self.port_[port_id]["act_t"]            =   0
+            self.port_[port_id]["act_lt"]           =   0
+            self.port_[port_id]["rumble_state"]     =   False
+            self.port_[port_id]["rumble_t"]         =   0
+            self.port_[port_id]["rumble_dur"]       =   0
+            self.port_[port_id]["L_motor"]          =   0
+            self.port_[port_id]["R_motor"]          =   0
+            return True
+        else:
+            return False
                   
 
 
     ''' INTERNAL UTILITY:                Quick-Clear the port  '''
-    def detach_( self , port_id  ):
+    def __detach( self , port_id  ):
         if self.port_[port_id]:
            self.port_[port_id]["attached"]                  =   "none"
            self.port_[port_id]["hat_num"]                   =   0
@@ -403,30 +392,28 @@ class CM:
            self.port_[port_id]["rumble_dur"]                =   0
            self.port_[port_id]["L_motor"]                   =   0
            self.port_[port_id]["R_motor"]                   =   0      
-
            return True 
         else:
            return False
 
 
-       
 
     #-------------------------------------------------------------------------------------------------------------------
-    # Internal updater: // controlls locked/limited at 120 FPS 
+    # Internal updater: set to some fixed FPS
     #-------------------------------------------------------------------------------------------------------------------
-    def update_(self):
+    def update(self):
 
         # internal state machines 
-        self.time_out()       
-        self.port_manager()
-        self.input_handler()
-        self.rumble_handler()
+        self.__time_out()       
+        self.__port_manager()
+        self.__input_handler()
+        self.__rumble_handler()
         # Pygame event pull 
 
         for event in self.pygame.event.get():
                 if event.type == self.pygame.JOYDEVICEADDED:
                      j = self.pygame.joystick.Joystick(event.device_index)
-                     rt = self.plugged(j)
+                     rt = self.__plugged(j)
                     
                 if event.type == self.pygame.JOYDEVICEREMOVED:
-                     self.unplugged( event.instance_id )
+                     self.__unplugged( event.instance_id )
