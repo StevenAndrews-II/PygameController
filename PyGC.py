@@ -15,7 +15,7 @@ class CM:
        self.settings = {
            "time_out_"                      :FPS*60*60,                             #   timeout state for controllers awaiting an open port
            "port_activity"                  :FPS*60*60,                             #   timeout state for virtual ports with dead or non active controllers 
-           "port_activity_deley"            :0.5*FPS,                                  #   deley that the activity state will hold before resetting ()
+           "port_activity_deley"            :0.5*FPS,                               #   deley that the activity state will hold before resetting ()
            "port_read_deley"                :1,                                     #   over read on USB port from event call                      
            "stick_deadZone"                 :.1,                                    #   stick sensitivity 
            "trigger_deadZone"               :.2                                     #   trigger sensitivity 
