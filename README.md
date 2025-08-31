@@ -45,11 +45,11 @@ from PyGC import CM
 pygame.init()
 pygame.joystick.init()
 
-EXIT = False
-FPS_LOCK = 60
+EXIT         = False
+FPS_LOCK     = 60
 FPS_INTERVAL = 1 / FPS_LOCK
-delta_time = 0
-last_tick = time.time()
+delta_time   = 0
+last_tick    = time.time()
 
 # Create controller manager for 1 virtual port
 cm = CM(pygame, math, number_of_ports=1, FPS_LOCK)
