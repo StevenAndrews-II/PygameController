@@ -70,16 +70,19 @@ while running:
 ## 📚 API Reference
 
 ### Core Methods:
-- `update_()`                       – updates all state machines, handles events  
+- `update()`                        – updates all state machines, handles events  
 - `get_button(port_id, button)`     – get button state (supports remapping)  
 - `get_axis(port_id, axis)`         – get trigger/stick values (supports remapping + inversion)
 - `get_stick_angle(port_id, axis)`  – stick angle + magnitude (supports remapping + inversion)
 - `get_dpad(port_id, pad_select)`   – D-Pad state (supports inversion )
 
 ### Management - internal:
-- `attach_(port_id, joy_id)`                          – attach controller to port  
-- `detach_(port_id)`                                  – detach controller from port  
-- `set_rumble(port_id, [L_motor, R_motor, duration])` – rumble control  
+- `__attach(port_id, joy_id)`                           – attach controller to port  
+- `__detach(port_id)`                                   – detach controller from port  
+- `__set_rumble(port_id, [L_motor, R_motor, duration])` – rumble control
+- `__port_manager()`                                    – handles the virtual port assignments 
+- `__input_handler()`                                   – updates the internal states for a controllers mapping
+- `__time_out()`                                        – handles timeout state checking for controllers
 
 ---
 
