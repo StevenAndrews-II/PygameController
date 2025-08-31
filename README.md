@@ -41,23 +41,24 @@ cd PygameController
 
 import pygame, math, time
 from PyGC import CM
+
 pygame.init()
 pygame.joystick.init()
 
-EXIT                     = False
-FPS_LOCK                 = 60
-FPS_INTERVAL             = 1 / FPS_LOCK
-delta_time               = 0
-last_tick                = time.time()
+EXIT = False
+FPS_LOCK = 60
+FPS_INTERVAL = 1 / FPS_LOCK
+delta_time = 0
+last_tick = time.time()
 
-
-# Create controller manager for 1 virtual ports
-cm = CM(pygame, math, number_of_ports = 1, FPS_LOCK)
-
+# Create controller manager for 1 virtual port
+cm = CM(pygame, math, number_of_ports=1, FPS_LOCK)
 
 def APP():
+    global EXIT
+
     # update the internal state machines 
-    cm.update() 
+    cm.update()
 
     # Example: check button A & B on port 0
     if cm.get_button(0, "A"):
@@ -69,24 +70,25 @@ def APP():
 
     # Example: set rumble 
     if cm.get_button(0, "X"):
-       cm.set_rumble(0, [0.5, 0.5, 2])  #  50 % L_motor, R_motor, duration in seconds
+        cm.set_rumble(0, [0.5, 0.5, 2])  # 50% L_motor, R_motor, duration in seconds
 
     # Example: get stick angle + magnitude
     angle, mag = cm.get_stick_angle(0, "L_stick")
     if angle is not None:
         print(f"L-stick angle: {angle:.2f}°, magnitude: {mag:.2f}")
 
+# Main loop, fps locked to 60
+while not EXIT:
+    tick = time.time()
+    delta = tick - last_tick
+    last_tick = tick
 
-while not EXIT:                                # main loop, fps locked to 60 
-     tick                =  time.time()        # get time 
-     delta               =  tick - last_tick   # get delta 
-     last_tick           =  tick               # update last tick 
+    delta_time += delta
 
-     deta_time           += delta              # update delta time 
+    if delta_time >= FPS_INTERVAL:
+        APP()
+        delta_time -= FPS_INTERVAL
 
-    if delta_time >= FPS_INTERVAL:             # reset delta, call FPS locked functions  
-       APP()        
-       delta_time        -= FPS_INTERVAL
 
 ```
 
